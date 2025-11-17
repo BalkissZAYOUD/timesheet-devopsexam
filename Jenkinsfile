@@ -36,7 +36,7 @@ pipeline {
                     // Vérifier que le conteneur tourne
                     sh 'sudo docker ps | grep test-app'
 
-                    // Arrêter et supprimer le conteneur de test avec sudo
+                    //Arrêter et supprimer le conteneur de test avec sudo
                     sh 'sudo docker stop test-app'
                 }
             }
