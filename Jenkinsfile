@@ -20,7 +20,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarServer') {
+                withSonarQubeEnv('sonarqube') {
                     sh """
                         sonar-scanner \
                         -Dsonar.projectKey=timesheet-devopsexam \
