@@ -25,19 +25,19 @@ pipeline {
             steps {
                 script {
                     // Build l'image Docker avec sudo
-                    sh 'sudo docker build -t timesheet-devops:latest .'
+                    sh 'docker build -t timesheet-devops:latest .'
 
                     // Lancer le conteneur pour test rapide avec sudo
-                    sh 'sudo docker run --rm -d --name test-app timesheet-devops:latest'
+                    sh 'docker run --rm -d --name test-app timesheet-devops:latest'
 
                     // Attendre quelques secondes pour vérifier le démarrage
                     sh 'sleep 10'
 
                     // Vérifier que le conteneur tourne
-                    sh 'sudo docker ps | grep test-app'
+                    sh 'docker ps | grep test-app'
 
                     //Arrêter et supprimer le conteneur de test avec sudo
-                    sh 'sudo docker stop test-app'
+                    sh 'docker stop test-app'
                 }
             }
         }
