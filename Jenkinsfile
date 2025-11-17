@@ -27,7 +27,7 @@ pipeline {
                     --format HTML
                     --format XML
                     --out dependency-check-report''',
-                   odcInstallation: 'dependency-check'
+                    odcInstallation: 'dependency-check'
             }
         }
 
@@ -50,43 +50,48 @@ pipeline {
             }
         }
 
-/* ---------------------- TRIVY SCAN ------------------------- */
-stage('Trivy Docker Scan') {
-    steps {
-        script {
-            sh '''
-                mkdir -p trivy-report
-                # Nettoyer la DB Java pour éviter les erreurs
-                trivy clean --java-db
-                # Lancer le scan avec timeout augmenté (10 minutes)
-                trivy image --format json --output trivy-report/trivy-report.json --timeout 600s timesheet-devops:latest
-            '''
+        /* ---------------------- TRIVY SCAN ------------------------- */
+        stage('Trivy Docker Scan') {
+            steps {
+                script {
+                    sh '''
+                        mkdir -p trivy-report
+                        trivy clean --java-db || true
+                        trivy image --format json --output trivy-report/trivy-report.json --timeout 600s timesheet-devops:latest
+                    '''
+                }
+            }
         }
-    }
-}
-        /* ---------------------- OWASP ZAP SCAN ------------------------- */
-       stage('OWASP ZAP Scan') {
-           steps {
-               script {
-                   sh '''
-                       # Ajouter ZAP au PATH
-                       export PATH=/opt/zap:$PATH
 
-                       # Lancer ZAP en mode daemon
-                       zap.sh -daemon -port 8085 -host 127.0.0.1 -config api.disablekey=true &
-                       sleep 20
+        /* ---------------------- OWASP ZAP SCAN (API) ------------------------- */
+        stage('OWASP ZAP Scan') {
+            steps {
+                script {
+                    sh '''
+                        export PATH=/opt/zap:$PATH
 
-                       # Lancer le scan avec zap-cli (assure-toi qu'il est installé)
-                       zap-cli --zap-url http://127.0.0.1 -p 8085 open-url http://localhost:8080
-                       zap-cli --zap-url http://127.0.0.1 -p 8085 spider http://localhost:8080
-                       zap-cli --zap-url http://127.0.0.1 -p 8085 active-scan http://localhost:8080
+                        # Lancer ZAP en daemon
+                        zap.sh -daemon -port 8085 -host 127.0.0.1 -config api.disablekey=true &
+                        echo "Démarrage de ZAP..."
+                        sleep 25
 
-                       # Générer un rapport HTML
-                       zap-cli --zap-url http://127.0.0.1 -p 8085 report -o zap_report.html -f html
-                   '''
-               }
-           }
-       }
+                        echo "Lancement du spider..."
+                        curl "http://127.0.0.1:8085/JSON/spider/action/scan/?url=http://localhost:8080"
+
+                        sleep 20
+
+                        echo "Lancement du active scan..."
+                        curl "http://127.0.0.1:8085/JSON/ascan/action/scan/?url=http://localhost:8080"
+
+                        sleep 30
+
+                        echo "Récupération du rapport HTML..."
+                        curl "http://127.0.0.1:8085/OTHER/core/other/htmlreport/" -o zap_report.html
+                    '''
+                }
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarServer') {
@@ -101,10 +106,7 @@ stage('Trivy Docker Scan') {
             echo "Build Maven, Dependency-Check, Docker, Trivy, ZAP et SonarQube terminés avec succès !"
         }
         failure {
-
             echo "Le pipeline a échoué !"
         }
     }
 }
-////testt
-/////ttt
