@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         SONARQUBE_TOKEN = credentials('sonarqube')
+        SLACK_WEBHOOK_URL = credentials('slack-webhook')
     }
 
     stages {
@@ -19,7 +20,6 @@ pipeline {
             }
         }
 
-        /* ---------------------- OWASP DEPENDENCY CHECK ---------------------- */
         stage('OWASP Dependency Check') {
             steps {
                 sh 'mkdir -p dependency-check-report'
@@ -37,7 +37,6 @@ pipeline {
             }
         }
 
-        /* ---------------------- DOCKER BUILD & TEST ------------------------- */
         stage('Docker Build & Test') {
             steps {
                 script {
@@ -50,7 +49,6 @@ pipeline {
             }
         }
 
-        /* ---------------------- TRIVY SCAN ------------------------- */
         stage('Trivy Docker Scan') {
             steps {
                 script {
@@ -63,14 +61,12 @@ pipeline {
             }
         }
 
-        /* ---------------------- OWASP ZAP SCAN (API) ------------------------- */
         stage('OWASP ZAP Scan') {
             steps {
                 script {
                     sh '''
                         export PATH=/opt/zap:$PATH
 
-                        # Lancer ZAP en daemon
                         zap.sh -daemon -port 8085 -host 127.0.0.1 -config api.disablekey=true &
                         echo "Démarrage de ZAP..."
                         sleep 25
@@ -103,10 +99,20 @@ pipeline {
 
     post {
         success {
-            echo "Build Maven, Dependency-Check, Docker, Trivy, ZAP et SonarQube terminés avec succès !"
+            echo "Pipeline terminé avec succès !"
+            sh """
+            curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"✅ Pipeline terminé avec succès ! Job: ${env.JOB_NAME} Build: #${env.BUILD_NUMBER}"}' \
+            $SLACK_WEBHOOK_URL
+            """
         }
         failure {
             echo "Le pipeline a échoué !"
+            sh """
+            curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"❌ Le pipeline a échoué ! Job: ${env.JOB_NAME} Build: #${env.BUILD_NUMBER}"}' \
+            $SLACK_WEBHOOK_URL
+            """
         }
     }
 }
