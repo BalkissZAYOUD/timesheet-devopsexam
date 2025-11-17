@@ -97,6 +97,7 @@ pipeline {
             echo "Build Maven, Dependency-Check, Docker, Trivy, ZAP et SonarQube terminés avec succès !"
         }
         failure {
+
             echo "Le pipeline a échoué !"
         }
     }
