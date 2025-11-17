@@ -21,11 +21,32 @@ pipeline {
             }
         }
 
+        stage('Docker Build & Test') {
+            steps {
+                script {
+                    // Build l'image Docker
+                    sh 'docker build -t timesheet-devops:latest .'
+
+                    // Lancer le conteneur pour test rapide
+                    sh 'docker run --rm -d --name test-app timesheet-devops:latest'
+
+                    // Attendre quelques secondes pour vérifier le démarrage
+                    sh 'sleep 10'
+
+                    // Vérifier que le conteneur tourne
+                    sh 'docker ps | grep test-app'
+
+                    // Arrêter et supprimer le conteneur de test
+                    sh 'docker stop test-app'
+                }
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 // Injection des variables d'environnement du serveur SonarQube configuré dans Jenkins
                 withSonarQubeEnv('SonarServer') {
-                    // Analyse du projet directement via Maven (pas besoin de sonar-scanner)
+                    // Analyse du projet directement via Maven
                     sh 'mvn sonar:sonar -Dsonar.login=$SONARQUBE_TOKEN'
                 }
             }
@@ -34,10 +55,10 @@ pipeline {
 
     post {
         success {
-            echo " Build Maven terminé avec succès !"
+            echo "Build Maven, Docker et SonarQube terminés avec succès !"
         }
         failure {
-            echo "Le build Maven a échoué !"
+            echo "Le pipeline a échoué !"
         }
     }
 }
