@@ -50,18 +50,20 @@ pipeline {
             }
         }
 
-        /* ---------------------- TRIVY SCAN ------------------------- */
-        stage('Trivy Docker Scan') {
-            steps {
-                script {
-                    sh '''
-                        mkdir -p trivy-report
-                        trivy image --format json --output trivy-report/trivy-report.json timesheet-devops:latest
-                    '''
-                }
-            }
+/* ---------------------- TRIVY SCAN ------------------------- */
+stage('Trivy Docker Scan') {
+    steps {
+        script {
+            sh '''
+                mkdir -p trivy-report
+                # Nettoyer la DB Java pour éviter les erreurs
+                trivy clean --java-db
+                # Lancer le scan avec timeout augmenté (10 minutes)
+                trivy image --format json --output trivy-report/trivy-report.json --timeout 600s timesheet-devops:latest
+            '''
         }
-
+    }
+}
         /* ---------------------- OWASP ZAP SCAN ------------------------- */
         stage('OWASP ZAP Scan') {
             steps {
