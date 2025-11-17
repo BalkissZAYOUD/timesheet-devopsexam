@@ -27,7 +27,7 @@ pipeline {
                     --format HTML
                     --format XML
                     --out dependency-check-report''',
-                    installation: 'dependency-check'
+                   odcInstallation: 'dependency-check'
             }
         }
 
