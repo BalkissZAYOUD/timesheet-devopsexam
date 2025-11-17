@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        SONARQUBE_TOKEN = credentials('sonarqube')
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -11,6 +15,20 @@ pipeline {
         stage('Build Maven') {
             steps {
                 sh 'mvn clean install'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarServer') {
+                    sh """
+                        sonar-scanner \
+                        -Dsonar.projectKey=timesheet-devopsexam \
+                        -Dsonar.sources=. \
+                        -Dsonar.host.url=http://192.168.50.4:9000 \
+                        -Dsonar.login=${SONARQUBE_TOKEN}
+                    """
+                }
             }
         }
     }
