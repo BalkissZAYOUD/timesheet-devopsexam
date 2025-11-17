@@ -65,26 +65,28 @@ stage('Trivy Docker Scan') {
     }
 }
         /* ---------------------- OWASP ZAP SCAN ------------------------- */
-        stage('OWASP ZAP Scan') {
-            steps {
-                script {
-                    sh '''
-                        # Lancer ZAP en mode daemon
-                        zap.sh -daemon -port 8085 -host 127.0.0.1 -config api.disablekey=true &
-                        sleep 20
+       stage('OWASP ZAP Scan') {
+           steps {
+               script {
+                   sh '''
+                       # Ajouter ZAP au PATH
+                       export PATH=/opt/zap:$PATH
 
-                        # Lancer un scan avec zap-cli (doit être installé: pip install zap-cli)
-                        zap-cli --zap-url http://127.0.0.1 -p 8085 open-url http://localhost:8080
-                        zap-cli --zap-url http://127.0.0.1 -p 8085 spider http://localhost:8080
-                        zap-cli --zap-url http://127.0.0.1 -p 8085 active-scan http://localhost:8080
+                       # Lancer ZAP en mode daemon
+                       zap.sh -daemon -port 8085 -host 127.0.0.1 -config api.disablekey=true &
+                       sleep 20
 
-                        # Générer un rapport HTML
-                        zap-cli --zap-url http://127.0.0.1 -p 8085 report -o zap_report.html -f html
-                    '''
-                }
-            }
-        }
+                       # Lancer le scan avec zap-cli (assure-toi qu'il est installé)
+                       zap-cli --zap-url http://127.0.0.1 -p 8085 open-url http://localhost:8080
+                       zap-cli --zap-url http://127.0.0.1 -p 8085 spider http://localhost:8080
+                       zap-cli --zap-url http://127.0.0.1 -p 8085 active-scan http://localhost:8080
 
+                       # Générer un rapport HTML
+                       zap-cli --zap-url http://127.0.0.1 -p 8085 report -o zap_report.html -f html
+                   '''
+               }
+           }
+       }
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarServer') {
