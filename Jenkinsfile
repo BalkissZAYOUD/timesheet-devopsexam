@@ -24,20 +24,20 @@ pipeline {
         stage('Docker Build & Test') {
             steps {
                 script {
-                    // Build l'image Docker
-                    sh 'docker build -t timesheet-devops:latest .'
+                    // Build l'image Docker avec sudo
+                    sh 'sudo docker build -t timesheet-devops:latest .'
 
-                    // Lancer le conteneur pour test rapide
-                    sh 'docker run --rm -d --name test-app timesheet-devops:latest'
+                    // Lancer le conteneur pour test rapide avec sudo
+                    sh 'sudo docker run --rm -d --name test-app timesheet-devops:latest'
 
                     // Attendre quelques secondes pour vérifier le démarrage
                     sh 'sleep 10'
 
                     // Vérifier que le conteneur tourne
-                    sh 'docker ps | grep test-app'
+                    sh 'sudo docker ps | grep test-app'
 
-                    // Arrêter et supprimer le conteneur de test
-                    sh 'docker stop test-app'
+                    // Arrêter et supprimer le conteneur de test avec sudo
+                    sh 'sudo docker stop test-app'
                 }
             }
         }
