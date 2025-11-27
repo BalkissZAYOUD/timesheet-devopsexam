@@ -52,29 +52,12 @@ pipeline {
         stage('OWASP ZAP Scan') {
             steps {
                 script {
-                    sh '''
-                        export PATH=/opt/zap:$PATH
-                        zap.sh -daemon -port 8085 -host 127.0.0.1 -config api.disablekey=true &
-                        echo "Démarrage de ZAP..."
-
-                        # Attente de démarrage complet
-                        until curl -s http://127.0.0.1:8085 >/dev/null; do sleep 5; done
-
-                        echo "Lancement du spider..."
-                        SPIDER_ID=$(curl -s "http://127.0.0.1:8085/JSON/spider/action/scan/?url=http://localhost:8080" | jq -r '.scan')
-                        while [ "$(curl -s http://127.0.0.1:8085/JSON/spider/view/status/?scanId=$SPIDER_ID | jq -r '.status')" != "100" ]; do sleep 5; done
-
-                        echo "Lancement du active scan..."
-                        ASCAN_ID=$(curl -s "http://127.0.0.1:8085/JSON/ascan/action/scan/?url=http://localhost:8080" | jq -r '.scan')
-                        while [ "$(curl -s http://127.0.0.1:8085/JSON/ascan/view/status/?scanId=$ASCAN_ID | jq -r '.status')" != "100" ]; do sleep 10; done
-
-                        echo "Récupération du rapport HTML..."
-                        curl -s "http://127.0.0.1:8085/OTHER/core/other/htmlreport/" -o zap_report.html
-                    '''
+                    sh './start_zap.sh'
                 }
                 archiveArtifacts artifacts: 'zap_report.html', allowEmptyArchive: true
             }
         }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarServer') {

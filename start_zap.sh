@@ -1,15 +1,21 @@
 #!/bin/bash
-# start_zap.sh - cleans corrupted add-ons and starts ZAP headless
+# scripts/start_zap.sh
 
-ZAP_PATH="/path/to/ZAP"  # Adjust this to where ZAP is installed
-ZAP_HOME="$HOME/.ZAP"
+ZAP_PATH=/opt/zap
+ZAP_PORT=8085
+ZAP_HOST=127.0.0.1
 
-echo "Cleaning corrupted add-ons..."
-rm -rf "$ZAP_HOME/addons/*.zap" 2>/dev/null || true
+# Remove corrupted add-ons (optional but recommended)
+rm -rf $ZAP_PATH/*.zap
 
-echo "Starting ZAP headless..."
-"$ZAP_PATH/zap.sh" -daemon -config api.disablekey=true -port 8080
+# Start ZAP headless
+$ZAP_PATH/zap.sh -daemon -port $ZAP_PORT -host $ZAP_HOST -config api.disablekey=true &
 
-# Optional: wait until ZAP fully loads
-sleep 10
-echo "ZAP is running!"
+echo "Starting ZAP daemon..."
+
+# Wait until ZAP is ready
+until curl -s http://$ZAP_HOST:$ZAP_PORT >/dev/null; do
+    sleep 5
+done
+
+echo "ZAP is ready!"
