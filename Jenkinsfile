@@ -49,33 +49,24 @@ pipeline {
                 archiveArtifacts artifacts: 'trivy-report/trivy-report.json', allowEmptyArchive: true
             }
         }
-        stage('OWASP ZAP Scan') {
-            steps {
-                script {
-                    withCredentials([string(credentialsId: 'zap-api-key', variable: 'ZAP_API_KEY')]) {
-                        sh """
-                            echo '[+] Lancement de OWASP ZAP en mode daemon...'
-                            zap.sh -daemon -port 9090 -host 0.0.0.0 -config api.key=$ZAP_API_KEY &
-                            sleep 20
+       stage('OWASP ZAP Scan') {
+           steps {
+               script {
+                   withCredentials([string(credentialsId: 'zap-api-key', variable: 'ZAP_API_KEY')]) {
+                       sh """
+                           echo '[+] Lancement de OWASP ZAP en mode daemon...'
+                           zap.sh -daemon -port 9090 -host 0.0.0.0 -config api.key=$ZAP_API_KEY &
+                           sleep 20
+                           echo '[+] Lancement du scan ZAP...'
+                           curl "http://127.0.0.1:9090/JSON/ascan/action/scan/?url=http://test-app:8080&apikey=$ZAP_API_KEY"
+                           ...
+                       """
+                   }
+               }
+               archiveArtifacts artifacts: 'zap_report.html', allowEmptyArchive: true
+           }
+       }
 
-                            echo '[+] Lancement du scan ZAP...'
-                            curl "http://127.0.0.1:9090/JSON/ascan/action/scan/?url=http://test-app:8080&apikey=$ZAP_API_KEY"
-
-                            progress=0
-                            while [ \$progress -lt 100 ]; do
-                                progress=\$(curl -s "http://127.0.0.1:9090/JSON/ascan/view/status/?scanId=0&apikey=$ZAP_API_KEY" | jq -r '.status')
-                                echo "Scan progress: \$progress%"
-                                sleep 5
-                            done
-
-                            echo '[+] Génération du rapport ZAP...'
-                            curl "http://127.0.0.1:9090/OTHER/core/other/htmlreport/?apikey=$ZAP_API_KEY" -o zap_report.html
-                        """
-                    }
-                }
-                archiveArtifacts artifacts: 'zap_report.html', allowEmptyArchive: true
-            }
-        }
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarServer') {
@@ -84,25 +75,25 @@ pipeline {
             }
         }
     }
-    post {
-        success {
-            echo "Pipeline terminé avec succès !"
-            sh """
-            curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"✅ Pipeline terminé avec succès ! Job: ${env.JOB_NAME} Build: #${env.BUILD_NUMBER}"}' \
-            $SLACK_WEBHOOK_URL
-            """
-        }
-        failure {
-            echo "Le pipeline a échoué !"
-            sh """
-            curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"❌ Le pipeline a échoué ! Job: ${env.JOB_NAME} Build: #${env.BUILD_NUMBER}"}' \
-            $SLACK_WEBHOOK_URL
-            """
-        }
-    }
-}
-// fffffffffffff
-//dxxcc
-///jjjjjjj
+ post {
+     success {
+         echo "Pipeline terminé avec succès !"
+         withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
+             sh '''
+                 curl -X POST -H "Content-type: application/json" \
+                 --data '{"text":"✅ Pipeline terminé avec succès ! Job: '"${JOB_NAME}"' Build: #'"${BUILD_NUMBER}"'"}' \
+                 $SLACK_WEBHOOK_URL
+             '''
+         }
+     }
+     failure {
+         echo "Le pipeline a échoué !"
+         withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
+             sh '''
+                 curl -X POST -H "Content-type: application/json" \
+                 --data '{"text":"❌ Le pipeline a échoué ! Job: '"${JOB_NAME}"' Build: #'"${BUILD_NUMBER}"'"}' \
+                 $SLACK_WEBHOOK_URL
+             '''
+         }
+     }
+ }
