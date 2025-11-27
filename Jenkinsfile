@@ -102,7 +102,7 @@ pipeline {
             echo "Pipeline terminé avec succès !"
             sh """
             curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"✅ Pipeline terminé avec succès ! Job: ${env.JOB_NAME} Build: #${env.BUILD_NUMBER}"}' \
+            --data '{"text":" Pipeline terminé avec succès ! Job: ${env.JOB_NAME} Build: #${env.BUILD_NUMBER}"}' \
             $SLACK_WEBHOOK_URL
             """
         }
@@ -110,9 +110,11 @@ pipeline {
             echo "Le pipeline a échoué !"
             sh """
             curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"❌ Le pipeline a échoué ! Job: ${env.JOB_NAME} Build: #${env.BUILD_NUMBER}"}' \
+            --data '{"text":" Le pipeline a échoué ! Job: ${env.JOB_NAME} Build: #${env.BUILD_NUMBER}"}' \
             $SLACK_WEBHOOK_URL
             """
         }
     }
 }
+
+////testttg
