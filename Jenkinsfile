@@ -61,33 +61,40 @@ pipeline {
             }
         }
 
-        stage('OWASP ZAP Scan') {
-            steps {
-                script {
-                    sh '''
-                        export PATH=/opt/zap:$PATH
+stage('OWASP ZAP Scan') {
+    steps {
+        script {
+            sh '''
+                export PATH=/opt/zap:$PATH
 
-                        zap.sh -daemon -port 8085 -host 127.0.0.1 -config api.disablekey=true &
-                        echo "Démarrage de ZAP..."
-                        sleep 25
+                # Lancer ZAP en arrière-plan
+                zap.sh -daemon -port 8085 -host 127.0.0.1 -config api.disablekey=true &
 
-                        echo "Lancement du spider..."
-                        curl "http://127.0.0.1:8085/JSON/spider/action/scan/?url=http://localhost:8080"
+                echo "Attente du démarrage de ZAP..."
+                timeout=60
+                while ! curl -s http://127.0.0.1:8085/ > /dev/null; do
+                    sleep 2
+                    timeout=$((timeout-2))
+                    if [ $timeout -le 0 ]; then
+                        echo "ZAP n'a pas démarré à temps."
+                        exit 1
+                    fi
+                done
 
-                        sleep 20
+                echo "ZAP est prêt, lancement du spider..."
+                curl "http://127.0.0.1:8085/JSON/spider/action/scan/?url=http://localhost:8080"
+                sleep 20
 
-                        echo "Lancement du active scan..."
-                        curl "http://127.0.0.1:8085/JSON/ascan/action/scan/?url=http://localhost:8080"
+                echo "Lancement du active scan..."
+                curl "http://127.0.0.1:8085/JSON/ascan/action/scan/?url=http://localhost:8080"
+                sleep 30
 
-                        sleep 30
-
-                        echo "Récupération du rapport HTML..."
-                        curl "http://127.0.0.1:8085/OTHER/core/other/htmlreport/" -o zap_report.html
-                    '''
-                }
-            }
+                echo "Récupération du rapport HTML..."
+                curl "http://127.0.0.1:8085/OTHER/core/other/htmlreport/" -o zap_report.html
+            '''
         }
-
+    }
+}
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarServer') {
@@ -117,4 +124,4 @@ pipeline {
     }
 }
 
-////testttg
+////testttgitg
