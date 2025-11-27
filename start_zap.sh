@@ -19,3 +19,4 @@ until curl -s http://$ZAP_HOST:$ZAP_PORT >/dev/null; do
 done
 
 echo "ZAP is ready!"
+
