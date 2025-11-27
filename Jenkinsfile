@@ -10,22 +10,26 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/BalkissZAYOUD/timesheet-devopsexam.git'
             }
         }
+
         stage('Build Maven') {
             steps {
                 sh 'mvn clean install'
             }
         }
+
         stage('OWASP Dependency Check') {
             steps {
                 sh 'mkdir -p dependency-check-report'
                 dependencyCheck additionalArguments: '''--scan . --format HTML --format XML --out dependency-check-report''', odcInstallation: 'dependency-check'
             }
         }
+
         stage('Publish Dependency Check Report') {
             steps {
                 dependencyCheckPublisher pattern: 'dependency-check-report/dependency-check-report.xml'
             }
         }
+
         stage('Docker Build & Test') {
             steps {
                 script {
@@ -37,6 +41,7 @@ pipeline {
                 }
             }
         }
+
         stage('Trivy Docker Scan') {
             steps {
                 script {
@@ -49,23 +54,6 @@ pipeline {
                 archiveArtifacts artifacts: 'trivy-report/trivy-report.json', allowEmptyArchive: true
             }
         }
-       stage('OWASP ZAP Scan') {
-           steps {
-               script {
-                   withCredentials([string(credentialsId: 'zap-api-key', variable: 'ZAP_API_KEY')]) {
-                       sh """
-                           echo '[+] Lancement de OWASP ZAP en mode daemon...'
-                           zap.sh -daemon -port 9090 -host 0.0.0.0 -config api.key=$ZAP_API_KEY &
-                           sleep 20
-                           echo '[+] Lancement du scan ZAP...'
-                           curl "http://127.0.0.1:9090/JSON/ascan/action/scan/?url=http://test-app:8080&apikey=$ZAP_API_KEY"
-                           ...
-                       """
-                   }
-               }
-               archiveArtifacts artifacts: 'zap_report.html', allowEmptyArchive: true
-           }
-       }
 
         stage('SonarQube Analysis') {
             steps {
@@ -75,25 +63,27 @@ pipeline {
             }
         }
     }
- post {
-     success {
-         echo "Pipeline terminé avec succès !"
-         withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
-             sh '''
-                 curl -X POST -H "Content-type: application/json" \
-                 --data '{"text":"✅ Pipeline terminé avec succès ! Job: '"${JOB_NAME}"' Build: #'"${BUILD_NUMBER}"'"}' \
-                 $SLACK_WEBHOOK_URL
-             '''
-         }
-     }
-     failure {
-         echo "Le pipeline a échoué !"
-         withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
-             sh '''
-                 curl -X POST -H "Content-type: application/json" \
-                 --data '{"text":"❌ Le pipeline a échoué ! Job: '"${JOB_NAME}"' Build: #'"${BUILD_NUMBER}"'"}' \
-                 $SLACK_WEBHOOK_URL
-             '''
-         }
-     }
- }
+
+    post {
+        success {
+            echo "Pipeline terminé avec succès !"
+            withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
+                sh '''
+                    curl -X POST -H "Content-type: application/json" \
+                    --data '{"text":"✅ Pipeline terminé avec succès ! Job: '"${JOB_NAME}"' Build: #'"${BUILD_NUMBER}"'"}' \
+                    $SLACK_WEBHOOK_URL
+                '''
+            }
+        }
+        failure {
+            echo "Le pipeline a échoué !"
+            withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
+                sh '''
+                    curl -X POST -H "Content-type: application/json" \
+                    --data '{"text":"❌ Le pipeline a échoué ! Job: '"${JOB_NAME}"' Build: #'"${BUILD_NUMBER}"'"}' \
+                    $SLACK_WEBHOOK_URL
+                '''
+            }
+        }
+    }
+}
