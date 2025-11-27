@@ -49,14 +49,32 @@ pipeline {
                 archiveArtifacts artifacts: 'trivy-report/trivy-report.json', allowEmptyArchive: true
             }
         }
-        stage('OWASP ZAP Scan') {
-            steps {
-                script {
-                    sh './start_zap.sh'
-                }
-                archiveArtifacts artifacts: 'zap_report.html', allowEmptyArchive: true
-            }
-        }
+       stage('OWASP ZAP Scan') {
+           steps {
+               script {
+                   sh """
+                       echo '[+] Lancement de OWASP ZAP en mode daemon...'
+                       zap.sh -daemon -port 9090 -host 0.0.0.0 -config api.key=12345 &
+                       sleep 20
+
+                       echo '[+] Lancement du scan ZAP...'
+                       curl "http://127.0.0.1:9090/JSON/ascan/action/scan/?url=http://test-app:8080&apikey=12345"
+
+                       # Attendre la fin du scan
+                       progress=0
+                       while [ \$progress -lt 100 ]; do
+                           progress=\$(curl -s "http://127.0.0.1:9090/JSON/ascan/view/status/?scanId=0&apikey=12345" | jq -r '.status')
+                           echo "Scan progress: \$progress%"
+                           sleep 5
+                       done
+
+                       echo '[+] Génération du rapport ZAP...'
+                       curl "http://127.0.0.1:9090/OTHER/core/other/htmlreport/?apikey=12345" -o zap_report.html
+                   """
+               }
+               archiveArtifacts artifacts: 'zap_report.html', allowEmptyArchive: true
+           }
+       }
 
         stage('SonarQube Analysis') {
             steps {
