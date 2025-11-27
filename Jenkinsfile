@@ -10,120 +10,97 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/BalkissZAYOUD/timesheet-devopsexam.git'
             }
         }
-
         stage('Build Maven') {
             steps {
                 sh 'mvn clean install'
             }
         }
-
         stage('OWASP Dependency Check') {
             steps {
                 sh 'mkdir -p dependency-check-report'
                 dependencyCheck additionalArguments: '''--scan . --format HTML --format XML --out dependency-check-report''', odcInstallation: 'dependency-check'
             }
         }
-
         stage('Publish Dependency Check Report') {
             steps {
                 dependencyCheckPublisher pattern: 'dependency-check-report/dependency-check-report.xml'
             }
         }
-
         stage('Docker Build & Test') {
             steps {
                 script {
                     sh 'docker build -t timesheet-devops:latest .'
-                    sh '''
-                        # Démarrer le conteneur et capturer les logs
-                        docker run --rm -d --name test-app -p 8081:8080 timesheet-devops:latest
-                        echo "[INFO] Conteneur démarré, attente du démarrage de l'application..."
-                        sleep 10
-
-                        # Vérifier si le conteneur est toujours en cours d'exécution
-                        if docker ps | grep -q test-app; then
-                            echo "✅ Conteneur en cours d'exécution"
-                            # Tester l'application
-                            curl -f http://localhost:8081/ || echo "⚠️ Application non accessible mais conteneur fonctionne"
-                        else
-                            echo "❌ Conteneur arrêté, vérification des logs..."
-                            docker logs test-app || echo "Impossible de récupérer les logs"
-                            # Relancer en mode foreground pour voir les erreurs
-                            echo "[DEBUG] Redémarrage en mode debug..."
-                            docker run --rm --name test-app-debug -p 8082:8080 timesheet-devops:latest &
-                            sleep 15
-                            docker logs test-app-debug || echo "Debug logs non disponibles"
-                            docker stop test-app-debug 2>/dev/null || true
-                        fi
-                    '''
+                    sh 'docker run --rm -d --name test-app timesheet-devops:latest'
+                    sh 'sleep 10'
+                    sh 'docker ps | grep test-app'
+                    sh 'docker stop test-app'
                 }
             }
         }
-
         stage('Trivy Docker Scan') {
             steps {
                 script {
                     sh '''
                         mkdir -p trivy-report
-                        # Scan même si le conteneur a échoué
-                        timeout 300 trivy image --format json --output trivy-report/trivy-report.json --exit-code 0 --severity CRITICAL,HIGH timesheet-devops:latest || echo "Trivy scan terminé"
+                        trivy clean --java-db || true
+                        trivy image --format json --output trivy-report/trivy-report.json --exit-code 1 --severity CRITICAL,HIGH timesheet-devops:latest || true
                     '''
                 }
                 archiveArtifacts artifacts: 'trivy-report/trivy-report.json', allowEmptyArchive: true
             }
         }
-
         stage('OWASP ZAP Scan') {
             steps {
                 script {
-                    sh '''
-                        echo "[INFO] Vérification de l'état de l'application..."
-                        # Vérifier si l'application est accessible
-                        if curl -s http://localhost:8081/ > /dev/null; then
-                            echo "[INFO] Application accessible, démarrage du scan ZAP..."
-                            zap.sh -quickurl http://localhost:8081 -quickout zap_report.html -quickprogress -cmd || echo "ZAP scan terminé"
-                        else
-                            echo "[INFO] Application non accessible, scan ZAP ignoré"
-                            echo "Scan ZAP ignoré - application non disponible" > zap_report.html
-                        fi
-                    '''
+                    withCredentials([string(credentialsId: 'zap-api-key', variable: 'ZAP_API_KEY')]) {
+                        sh """
+                            echo '[+] Lancement de OWASP ZAP en mode daemon...'
+                            zap.sh -daemon -port 9090 -host 0.0.0.0 -config api.key=$ZAP_API_KEY &
+                            sleep 20
+
+                            echo '[+] Lancement du scan ZAP...'
+                            curl "http://127.0.0.1:9090/JSON/ascan/action/scan/?url=http://test-app:8080&apikey=$ZAP_API_KEY"
+
+                            progress=0
+                            while [ \$progress -lt 100 ]; do
+                                progress=\$(curl -s "http://127.0.0.1:9090/JSON/ascan/view/status/?scanId=0&apikey=$ZAP_API_KEY" | jq -r '.status')
+                                echo "Scan progress: \$progress%"
+                                sleep 5
+                            done
+
+                            echo '[+] Génération du rapport ZAP...'
+                            curl "http://127.0.0.1:9090/OTHER/core/other/htmlreport/?apikey=$ZAP_API_KEY" -o zap_report.html
+                        """
+                    }
                 }
                 archiveArtifacts artifacts: 'zap_report.html', allowEmptyArchive: true
             }
         }
-
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarServer') {
-                    sh 'mvn sonar:sonar -Dsonar.login=$SONARQUBE_TOKEN -Dsonar.host.url=http://localhost:9000'
+                    sh 'mvn sonar:sonar -Dsonar.login=$SONARQUBE_TOKEN'
                 }
             }
         }
     }
     post {
-        always {
-            sh '''
-                echo "[INFO] Nettoyage des conteneurs..."
-                docker stop test-app 2>/dev/null || true
-                docker stop test-app-debug 2>/dev/null || true
-                docker rm test-app 2>/dev/null || true
-                docker rm test-app-debug 2>/dev/null || true
-                pkill -f "zap.sh" 2>/dev/null || true
-            '''
-        }
         success {
+            echo "Pipeline terminé avec succès !"
             sh """
-                curl -X POST -H 'Content-type: application/json' \
-                --data '{"text":"✅ Pipeline DevSecOps réussi !\\nJob: ${env.JOB_NAME}\\nBuild: #${env.BUILD_NUMBER}"}' \
-                $SLACK_WEBHOOK_URL
+            curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"✅ Pipeline terminé avec succès ! Job: ${env.JOB_NAME} Build: #${env.BUILD_NUMBER}"}' \
+            $SLACK_WEBHOOK_URL
             """
         }
         failure {
+            echo "Le pipeline a échoué !"
             sh """
-                curl -X POST -H 'Content-type: application/json' \
-                --data '{"text":"❌ Pipeline DevSecOps échoué !\\nJob: ${env.JOB_NAME}\\nBuild: #${env.BUILD_NUMBER}\\nErreur: Conteneur Docker arrêté"}' \
-                $SLACK_WEBHOOK_URL
+            curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"❌ Le pipeline a échoué ! Job: ${env.JOB_NAME} Build: #${env.BUILD_NUMBER}"}' \
+            $SLACK_WEBHOOK_URL
             """
         }
     }
 }
+// fffffffffffff
