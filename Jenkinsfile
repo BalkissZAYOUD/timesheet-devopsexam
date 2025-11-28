@@ -3,6 +3,7 @@ pipeline {
     environment {
         SONARQUBE_TOKEN = credentials('sonarqube')
         SLACK_WEBHOOK_URL = credentials('slack-webhook')
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub') // ID de tes credentials DockerHub dans Jenkins
     }
     stages {
         stage('Checkout') {
@@ -55,10 +56,32 @@ pipeline {
             }
         }
 
+        stage('Docker Push to Hub') {
+            steps {
+                script {
+                    withDockerRegistry([credentialsId: 'dockerhub', url: '']) {
+                        sh 'docker tag timesheet-devops:latest balkiszayoud/timesheet-devops:latest'
+                        sh 'docker push balkiszayoud/timesheet-devops:latest'
+                    }
+                }
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarServer') {
                     sh 'mvn sonar:sonar -Dsonar.login=$SONARQUBE_TOKEN'
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    sh 'minikube image load balkiszayoud/timesheet-devops:latest'
+                    sh 'kubectl apply -f k8s/deployment.yaml'
+                    sh 'kubectl apply -f k8s/service.yaml'
+                    sh 'kubectl rollout status deployment/timesheet-deployment'
                 }
             }
         }
