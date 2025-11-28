@@ -74,18 +74,15 @@ pipeline {
                 }
             }
         }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    sh 'minikube image load balkiszayoud/timesheet-devops:latest'
-                    sh 'kubectl apply -f k8s/deployment.yaml'
-                    sh 'kubectl apply -f k8s/service.yaml'
-                    sh 'kubectl rollout status deployment/timesheet-deployment'
-                }
-            }
+stage('Deploy to Kubernetes') {
+    steps {
+        script {
+            sh 'kubectl set image deployment/timesheet-deployment timesheet=balkiszayoud/timesheet-devops:v1'
+            sh 'kubectl rollout status deployment/timesheet-deployment'
         }
     }
+}
+
 
     post {
         success {
