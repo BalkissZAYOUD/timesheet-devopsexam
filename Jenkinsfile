@@ -34,7 +34,6 @@ pipeline {
             steps {
                 script {
                     sh 'docker build -t balkiszayoud/timesheet-devops:latest .'
-                    // On teste sans exposer le port pour éviter conflit avec Jenkins
                     sh 'docker run --rm -d --name test-app balkiszayoud/timesheet-devops:latest'
                     sh 'sleep 10'
                     sh 'docker ps | grep test-app'
@@ -74,30 +73,34 @@ pipeline {
             }
         }
 
-     stage('Deploy to Minikube') {
-         steps {
-             sh 'minikube image load balkiszayoud/timesheet-devops:latest'
-             sh 'kubectl rollout restart deployment/timesheet-deployment'
-         }
-     }
-
+        stage('Deploy to Minikube') {
+            steps {
+                sh 'minikube image load balkiszayoud/timesheet-devops:latest'
+                sh 'kubectl rollout restart deployment/timesheet-deployment'
+            }
+        }
+    }
 
     post {
         success {
             echo "Pipeline terminé avec succès !"
-            sh """
-            curl -X POST -H "Content-type: application/json" \
-            --data '{"text":"✅ Pipeline terminé avec succès ! Job: ${JOB_NAME} Build: #${BUILD_NUMBER}"}' \
-            $SLACK_WEBHOOK_URL
-            """
+            script {
+                sh """
+                    curl -X POST -H "Content-type: application/json" \\
+                    --data '{"text":"✅ Pipeline terminé avec succès ! Job: ${JOB_NAME} Build: #${BUILD_NUMBER}"}' \\
+                    $SLACK_WEBHOOK_URL
+                """
+            }
         }
         failure {
             echo "Le pipeline a échoué !"
-            sh """
-            curl -X POST -H "Content-type: application/json" \
-            --data '{"text":"❌ Le pipeline a échoué ! Job: ${JOB_NAME} Build: #${BUILD_NUMBER}"}' \
-            $SLACK_WEBHOOK_URL
-            """
+            script {
+                sh """
+                    curl -X POST -H "Content-type: application/json" \\
+                    --data '{"text":"❌ Le pipeline a échoué ! Job: ${JOB_NAME} Build: #${BUILD_NUMBER}"}' \\
+                    $SLACK_WEBHOOK_URL
+                """
+            }
         }
     }
 }
