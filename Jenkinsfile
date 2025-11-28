@@ -74,16 +74,13 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    // Déploie l'image que tu viens de pousser
-                    sh 'kubectl set image deployment/timesheet-deployment timesheet=balkiszayoud/timesheet-devops:latest'
-                    sh 'kubectl rollout status deployment/timesheet-deployment'
-                }
-            }
-        }
-    }
+     stage('Deploy to Minikube') {
+         steps {
+             sh 'minikube image load balkiszayoud/timesheet-devops:latest'
+             sh 'kubectl rollout restart deployment/timesheet-deployment'
+         }
+     }
+
 
     post {
         success {
