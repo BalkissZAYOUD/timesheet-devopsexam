@@ -98,7 +98,7 @@ pipeline {
                 """
             }
         }
-
+////testt
         failure {
             echo "Le pipeline a échoué !"
             script {
