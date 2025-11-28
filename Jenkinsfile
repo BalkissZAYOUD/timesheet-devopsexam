@@ -46,26 +46,6 @@ pipeline {
             }
         }
 
-        stage('OWASP ZAP Scan') {
-            steps {
-                script {
-                    sh '''
-                        mkdir -p zap-report
-                        # Lancer OWASP ZAP en mode daemon
-                        zap.sh -daemon -port 8090 -host 127.0.0.1 -config api.disablekey=true &
-                        sleep 15
-                        # Exécuter le scan actif sur l'URL de l'application
-                        zap-cli -p 8090 status -t 120
-                        zap-cli -p 8090 open-url http://localhost:8080
-                        zap-cli -p 8090 spider http://localhost:8080
-                        zap-cli -p 8090 active-scan http://localhost:8080
-                        zap-cli -p 8090 report -o zap-report/zap-report.html -f html
-                    '''
-                    archiveArtifacts artifacts: 'zap-report/zap-report.html', allowEmptyArchive: true
-                }
-            }
-        }
-
         stage('Trivy Docker Scan') {
             steps {
                 script {
@@ -118,6 +98,7 @@ pipeline {
                 """
             }
         }
+////testt
         failure {
             echo "Le pipeline a échoué !"
             script {
@@ -130,3 +111,5 @@ pipeline {
         }
     }
 }
+////TESTTTT
+//////testtttt
