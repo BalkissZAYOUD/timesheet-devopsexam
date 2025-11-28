@@ -1,10 +1,13 @@
 pipeline {
     agent any
+
     environment {
         SONARQUBE_TOKEN = credentials('sonarqube')
         SLACK_WEBHOOK_URL = credentials('slack-webhook')
     }
+
     stages {
+
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/BalkissZAYOUD/timesheet-devopsexam.git'
@@ -20,7 +23,8 @@ pipeline {
         stage('OWASP Dependency Check') {
             steps {
                 sh 'mkdir -p dependency-check-report'
-                dependencyCheck additionalArguments: '''--scan . --format HTML --format XML --out dependency-check-report''', odcInstallation: 'dependency-check'
+                dependencyCheck additionalArguments: '''--scan . --format HTML --format XML --out dependency-check-report''',
+                                odcInstallation: 'dependency-check'
             }
         }
 
@@ -48,7 +52,9 @@ pipeline {
                     sh '''
                         mkdir -p trivy-report
                         trivy clean --java-db || true
-                        trivy image --format json --output trivy-report/trivy-report.json --exit-code 1 --severity CRITICAL,HIGH balkiszayoud/timesheet-devops:latest || true
+                        trivy image --format json --output trivy-report/trivy-report.json \
+                            --exit-code 1 --severity CRITICAL,HIGH \
+                            balkiszayoud/timesheet-devops:latest || true
                     '''
                 }
                 archiveArtifacts artifacts: 'trivy-report/trivy-report.json', allowEmptyArchive: true
@@ -79,24 +85,26 @@ pipeline {
                 sh 'kubectl rollout status deployment/timesheet-deployment'
             }
         }
+    }
 
     post {
         success {
             echo "Pipeline terminé avec succès !"
             script {
                 sh """
-                    curl -X POST -H "Content-type: application/json" \\
-                    --data '{"text":"✅ Pipeline terminé avec succès ! Job: ${JOB_NAME} Build: #${BUILD_NUMBER}"}' \\
+                    curl -X POST -H "Content-type: application/json" \
+                    --data '{"text":"✅ Pipeline terminé avec succès ! Job: ${JOB_NAME} Build: #${BUILD_NUMBER}"}' \
                     $SLACK_WEBHOOK_URL
                 """
             }
         }
+
         failure {
             echo "Le pipeline a échoué !"
             script {
                 sh """
-                    curl -X POST -H "Content-type: application/json" \\
-                    --data '{"text":"❌ Le pipeline a échoué ! Job: ${JOB_NAME} Build: #${BUILD_NUMBER}"}' \\
+                    curl -X POST -H "Content-type: application/json" \
+                    --data '{"text":"❌ Le pipeline a échoué ! Job: ${JOB_NAME} Build: #${BUILD_NUMBER}"}' \
                     $SLACK_WEBHOOK_URL
                 """
             }
