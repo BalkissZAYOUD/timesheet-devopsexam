@@ -3,7 +3,6 @@ pipeline {
     environment {
         SONARQUBE_TOKEN = credentials('sonarqube')
         SLACK_WEBHOOK_URL = credentials('slack-webhook')
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub') // ID de tes credentials DockerHub dans Jenkins
     }
     stages {
         stage('Checkout') {
@@ -34,8 +33,9 @@ pipeline {
         stage('Docker Build & Test') {
             steps {
                 script {
-                    sh 'docker build -t timesheet-devops:latest .'
-                    sh 'docker run --rm -d --name test-app timesheet-devops:latest'
+                    sh 'docker build -t balkiszayoud/timesheet-devops:latest .'
+                    // On teste sans exposer le port pour éviter conflit avec Jenkins
+                    sh 'docker run --rm -d --name test-app balkiszayoud/timesheet-devops:latest'
                     sh 'sleep 10'
                     sh 'docker ps | grep test-app'
                     sh 'docker stop test-app'
@@ -49,7 +49,7 @@ pipeline {
                     sh '''
                         mkdir -p trivy-report
                         trivy clean --java-db || true
-                        trivy image --format json --output trivy-report/trivy-report.json --exit-code 1 --severity CRITICAL,HIGH timesheet-devops:latest || true
+                        trivy image --format json --output trivy-report/trivy-report.json --exit-code 1 --severity CRITICAL,HIGH balkiszayoud/timesheet-devops:latest || true
                     '''
                 }
                 archiveArtifacts artifacts: 'trivy-report/trivy-report.json', allowEmptyArchive: true
@@ -60,7 +60,6 @@ pipeline {
             steps {
                 script {
                     withDockerRegistry([credentialsId: 'dockerhub', url: '']) {
-                        sh 'docker tag timesheet-devops:latest balkiszayoud/timesheet-devops:latest'
                         sh 'docker push balkiszayoud/timesheet-devops:latest'
                     }
                 }
@@ -74,36 +73,34 @@ pipeline {
                 }
             }
         }
-stage('Deploy to Kubernetes') {
-    steps {
-        script {
-            sh 'kubectl set image deployment/timesheet-deployment timesheet=balkiszayoud/timesheet-devops:v1'
-            sh 'kubectl rollout status deployment/timesheet-deployment'
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    // Déploie l'image que tu viens de pousser
+                    sh 'kubectl set image deployment/timesheet-deployment timesheet=balkiszayoud/timesheet-devops:latest'
+                    sh 'kubectl rollout status deployment/timesheet-deployment'
+                }
+            }
         }
     }
-}
-
 
     post {
         success {
             echo "Pipeline terminé avec succès !"
-            withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
-                sh '''
-                    curl -X POST -H "Content-type: application/json" \
-                    --data '{"text":"✅ Pipeline terminé avec succès ! Job: '"${JOB_NAME}"' Build: #'"${BUILD_NUMBER}"'"}' \
-                    $SLACK_WEBHOOK_URL
-                '''
-            }
+            sh """
+            curl -X POST -H "Content-type: application/json" \
+            --data '{"text":"✅ Pipeline terminé avec succès ! Job: ${JOB_NAME} Build: #${BUILD_NUMBER}"}' \
+            $SLACK_WEBHOOK_URL
+            """
         }
         failure {
             echo "Le pipeline a échoué !"
-            withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
-                sh '''
-                    curl -X POST -H "Content-type: application/json" \
-                    --data '{"text":"❌ Le pipeline a échoué ! Job: '"${JOB_NAME}"' Build: #'"${BUILD_NUMBER}"'"}' \
-                    $SLACK_WEBHOOK_URL
-                '''
-            }
+            sh """
+            curl -X POST -H "Content-type: application/json" \
+            --data '{"text":"❌ Le pipeline a échoué ! Job: ${JOB_NAME} Build: #${BUILD_NUMBER}"}' \
+            $SLACK_WEBHOOK_URL
+            """
         }
     }
 }
