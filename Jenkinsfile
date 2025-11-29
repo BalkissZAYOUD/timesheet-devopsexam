@@ -3,8 +3,10 @@ pipeline {
 
     environment {
         SONARQUBE_TOKEN = credentials('sonarqube')
+
         SLACK_WEBHOOK_URL = credentials('slack-webhook')
-        SLACK_TOKEN = credentials('slack-token')   // Pour files.upload
+
+
     }
 
     stages {
