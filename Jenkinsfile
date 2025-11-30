@@ -87,27 +87,28 @@ pipeline {
             }
         }
 
-        /* --------------------- 7) DOCKER BUILD & LOCAL TEST --------------------- */
-        stage('Docker Build & Local Test') {
-            steps {
-                script {
-                    // Build Docker image
-                    sh 'docker build -t balkiszayoud/timesheet-devops:latest .'
-
-                    // Run container en arrière-plan pour test
-                    sh 'docker run --rm -d --name test-app balkiszayoud/timesheet-devops:latest'
-
-                    // Pause pour laisser le container démarrer
-                    sh 'sleep 10'
-
-                    // Vérifie les logs pour s'assurer que l'app démarre
-                    sh 'docker logs test-app'
-
-                    // Stop container après test
-                    sh 'docker stop test-app'
-                }
-            }
-        }
+        /* ---------------------minikube--------------------- */
+       stage('Set Minikube Docker Env') {
+           steps {
+               script {
+                   sh 'eval $(minikube -p minikube docker-env)'
+               }
+           }
+       }
+       /* ---------------------------Docker-----------------------*/
+       stage('Docker Build & Local Test') {
+           steps {
+               script {
+                   sh '''
+                       docker build -t timesheet-devops:latest .
+                       docker run --rm -d --name test-app -p 8080:8080 timesheet-devops:latest
+                       sleep 10
+                       docker logs test-app
+                       docker stop test-app
+                   '''
+               }
+           }
+       }
 
         /* --------------------- 8) PUSH DOCKER HUB --------------------- */
         stage('Docker Push to Hub') {
@@ -121,13 +122,14 @@ pipeline {
         }
 
         /* --------------------- 9) DEPLOYMENT KUBERNETES --------------------- */
-        stage('Deploy to Kubernetes') {
-            steps {
-                sh 'kubectl set image deployment/timesheet-deployment timesheet=balkiszayoud/timesheet-devops:latest'
-                sh 'kubectl rollout status deployment/timesheet-deployment'
+         stage('Deploy to Kubernetes') {
+          steps {
+              script {
+                  sh 'kubectl set image deployment/timesheet-deployment timesheet=timesheet-devops:latest'
+                  sh 'kubectl rollout status deployment/timesheet-deployment'
+              }
             }
-        }
-    }
+          }
 
     /* --------------------- NOTIFICATIONS SLACK --------------------- */
     post {
