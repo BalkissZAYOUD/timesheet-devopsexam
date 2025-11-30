@@ -91,10 +91,19 @@ pipeline {
         stage('Docker Build & Local Test') {
             steps {
                 script {
+                    // Build Docker image
                     sh 'docker build -t balkiszayoud/timesheet-devops:latest .'
-                    sh 'docker run --rm -d --name test-app -p 8080:8080 balkiszayoud/timesheet-devops:latest'
+
+                    // Run container en arrière-plan pour test
+                    sh 'docker run --rm -d --name test-app balkiszayoud/timesheet-devops:latest'
+
+                    // Pause pour laisser le container démarrer
                     sh 'sleep 10'
-                    sh 'docker ps | grep test-app'
+
+                    // Vérifie les logs pour s'assurer que l'app démarre
+                    sh 'docker logs test-app'
+
+                    // Stop container après test
                     sh 'docker stop test-app'
                 }
             }
