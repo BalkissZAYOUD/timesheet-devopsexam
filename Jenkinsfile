@@ -48,19 +48,28 @@ pipeline {
         /* --------------------- 4) DAST : OWASP ZAP --------------------- */
         stage('OWASP ZAP Scan') {
             steps {
-                script {
-                    sh '''
-                        mkdir -p zap-report
-                        docker run --rm \
-                            -v $(pwd)/zap-report:/zap/wrk \
-                            owasp/zap2docker-stable zap-baseline.py \
-                            -t http://localhost:8080 \
-                            -r zap-report.html || true
-                    '''
-                }
-                archiveArtifacts artifacts: 'zap-report/zap-report.html', allowEmptyArchive: true
-            }
+                 script {
+                     sh '''
+                          echo "📌 Running OWASP ZAP Baseline Scan..."
+
+                           # Create report folder
+                           mkdir -p zap-report
+
+                           # Run ZAP baseline scan using the new official image
+                           docker run --rm \
+                           -u root \
+                           -v $(pwd)/zap-report:/zap/wrk \
+                          ghcr.io/zaproxy/zap-stable \
+                          zap-baseline.py \
+                          -t http://localhost:8080 \
+                          -r zap-report.html || true
+            '''
         }
+
+        // Archive the report (even if empty to avoid pipeline failure)
+        archiveArtifacts artifacts: 'zap-report/zap-report.html', allowEmptyArchive: true
+    }
+}
 
         /* --------------------- 5) TRIVY SCAN --------------------- */
         stage('Trivy Scan') {
@@ -204,3 +213,4 @@ pipeline {
     }
 }
 
+/////*test*/
