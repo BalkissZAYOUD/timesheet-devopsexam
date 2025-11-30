@@ -91,7 +91,7 @@ pipeline {
        stage('Set Minikube Docker Env') {
            steps {
                script {
-                   sh 'eval $(minikube -p minikube docker-env)'
+                   sh 'eval $(minikube -p minikube docker-env) || true'
                }
            }
        }
