@@ -130,7 +130,7 @@ pipeline {
               }
             }
           }
-
+}
     /* --------------------- NOTIFICATIONS SLACK --------------------- */
     post {
         success {
@@ -204,4 +204,3 @@ pipeline {
     }
 }
 
-}
