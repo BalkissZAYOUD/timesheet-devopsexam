@@ -46,27 +46,24 @@ pipeline {
         }
 
         /* --------------------- 4) DAST : OWASP ZAP --------------------- */
-        stage('OWASP ZAP Scan') {
-            steps {
-                 script {
-                     sh '''
-                          echo "📌 Running OWASP ZAP Baseline Scan..."
+stage('OWASP ZAP Scan') {
+    steps {
+        script {
+            sh '''
+                echo "📌 Running OWASP ZAP Baseline Scan..."
 
-                           # Create report folder
-                           mkdir -p zap-report
+                mkdir -p zap-report
 
-                           # Run ZAP baseline scan using the new official image
-                           docker run --rm \
-                           -u root \
-                           -v $(pwd)/zap-report:/zap/wrk \
-                          ghcr.io/zaproxy/zap-stable \
-                          zap-baseline.py \
-                          -t http://localhost:8080 \
-                          -r zap-report.html || true
+                docker run --rm \
+                    -u root \
+                    -v $(pwd)/zap-report:/zap/wrk \
+                    softwaresecurityproject/zap-stable \
+                    zap-baseline.py \
+                    -t http://localhost:8080 \
+                    -r zap-report.html || true
             '''
         }
 
-        // Archive the report (even if empty to avoid pipeline failure)
         archiveArtifacts artifacts: 'zap-report/zap-report.html', allowEmptyArchive: true
     }
 }
