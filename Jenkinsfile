@@ -107,7 +107,7 @@ stage('OWASP ZAP Scan') {
                script {
                    sh '''
                        docker build -t timesheet-devops:latest .
-                       docker run --rm -d --name test-app -p 8080:8080 timesheet-devops:latest
+                      docker run --rm -d --name test-app -p 8081:8080 timesheet-devops:latest
                        sleep 10
                        docker logs test-app
                        docker stop test-app
