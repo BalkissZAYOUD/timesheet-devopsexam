@@ -128,14 +128,23 @@ stage('OWASP ZAP Scan') {
         }
 
         /* --------------------- 9) DEPLOYMENT KUBERNETES --------------------- */
-         stage('Deploy to Kubernetes') {
-          steps {
-              script {
-                  sh 'kubectl set image deployment/timesheet-deployment timesheet=timesheet-devops:latest'
-                  sh 'kubectl rollout status deployment/timesheet-deployment'
-              }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    // On définit le kubeconfig pour Jenkins
+                    withEnv(["KUBECONFIG=/home/vagrant/.kube/config"]) {
+                        echo "📌 Déploiement sur Minikube"
+
+                        // Mettre à jour l'image du déploiement
+                        sh 'kubectl set image deployment/timesheet-deployment timesheet=timesheet-devops:latest'
+
+                        // Vérifier que le déploiement est réussi
+                        sh 'kubectl rollout status deployment/timesheet-deployment'
+                    }
+                }
             }
-          }
+        }
 }
     /* --------------------- NOTIFICATIONS SLACK --------------------- */
     post {
