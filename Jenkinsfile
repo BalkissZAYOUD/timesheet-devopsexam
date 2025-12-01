@@ -49,25 +49,31 @@ pipeline {
 stage('OWASP ZAP Scan') {
     steps {
         script {
+            // Créer le dossier pour le rapport et vérifier les permissions
+            sh '''
+                mkdir -p zap-report
+                sudo chown -R $(whoami):$(whoami) zap-report
+            '''
+
+            // Lancer ZAP en utilisant le réseau hôte pour accéder à l'app
             sh '''
                 echo "📌 Running OWASP ZAP Baseline Scan..."
 
-                mkdir -p zap-report
-
                 docker run --rm \
                     -u root \
+                    --network host \
                     -v $(pwd)/zap-report:/zap/wrk \
                     softwaresecurityproject/zap-stable \
                     zap-baseline.py \
-                    -t http://localhost:8080 \
-                    -r zap-report.html || true
+                    -t http://127.0.0.1:8081 \
+                    -r /zap/wrk/zap-report.html || true
             '''
         }
 
-        archiveArtifacts artifacts: 'zap-report/zap-report.html', allowEmptyArchive: true
+        // Archiver le rapport dans Jenkins
+        archiveArtifacts artifacts: 'zap-report/zap-report.html', allowEmptyArchive: false
     }
 }
-
         /* --------------------- 5) TRIVY SCAN --------------------- */
         stage('Trivy Scan') {
             steps {
